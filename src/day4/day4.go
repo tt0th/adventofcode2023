@@ -13,6 +13,8 @@ type Card struct {
 	id             int
 	myNumbers      []int
 	winningNumbers []int
+	numberOfHits   int
+	count          int
 }
 
 func main() {
@@ -21,23 +23,33 @@ func main() {
 	var cards = parseCards(path)
 
 	points := calculatePoints(cards)
-	fmt.Printf("Points: %d\n", points)
+	count := countCards(cards)
+	fmt.Printf("Points: %d, Cards: %d\n", points, count)
 }
 
 func calculatePoints(cards []Card) int {
 	var sum = 0
 	for _, card := range cards {
-		intersection := lo.Intersect(card.myNumbers, card.winningNumbers)
-		numberOfHits := len(intersection)
 		var score int
-		if numberOfHits > 0 {
-			score = 1 << (numberOfHits - 1)
+		if card.numberOfHits > 0 {
+			score = 1 << (card.numberOfHits - 1)
 		} else {
 			score = 0
 		}
 		sum += score
 	}
 	return sum
+}
+
+func countCards(cards []Card) int {
+	for i := 0; i < len(cards); i++ {
+		for j := 1; j < cards[i].numberOfHits+1; j++ {
+			cards[i+j].count += cards[i].count
+		}
+	}
+	return lo.SumBy(cards, func(card Card) int {
+		return card.count
+	})
 }
 
 var cardParserRegexp = regexp.MustCompile(`^Card\s+(?P<id>[0-9]+):\s+(?P<myNumbers>([0-9]\s*)+)\s+\|\s+(?P<winningNumbers>([0-9]\s*)+)`)
@@ -72,6 +84,8 @@ func parseCard(line string) Card {
 			}
 		}
 	}
+	card.numberOfHits = len(lo.Intersect(card.myNumbers, card.winningNumbers))
+	card.count = 1
 	return card
 }
 
