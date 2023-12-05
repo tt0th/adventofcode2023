@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/samber/lo"
+	"math"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -31,11 +33,50 @@ func main() {
 	var seedIds, mappings = parseInput(path)
 
 	seeds := collectSeedProperties(seedIds, mappings)
-
 	minLocation := lo.Min(lo.Map(seeds, func(seed Seed, index int) int {
 		return seed.idChain[len(seed.idChain)-1]
 	}))
-	fmt.Printf("Min location: %d\n", minLocation)
+
+	minLocationOfExtendedSeedIds := findMinLocationOfExtendedSeedIds(seedIds, mappings)
+
+	fmt.Printf("Min location: %d, minLocationOfExtendedSeedIds: %d\n", minLocation, minLocationOfExtendedSeedIds)
+}
+
+func findMinLocationOfExtendedSeedIds(originalSeedIds []int, mappings []Mapping) int {
+	slices.Reverse(mappings)
+	for location := 0; location < math.MaxInt; location++ {
+		idChain := []int{location}
+		for _, mapping := range mappings {
+			nextId := getReverseMappedId(idChain[len(idChain)-1], mapping)
+			idChain = append(idChain, nextId)
+			if len(idChain) == (len(mappings)+1) && isSeedIdInExtendedSeedIds(nextId, originalSeedIds) {
+				return location
+			}
+		}
+	}
+	panic("Could not find lowest location before reaching max int value")
+}
+
+func isSeedIdInExtendedSeedIds(seedId int, originalSeedIds []int) bool {
+	for i := 0; i < len(originalSeedIds); i += 2 {
+		rangeStart := originalSeedIds[i]
+		rangeLength := originalSeedIds[i+1]
+		if seedId >= rangeStart && seedId < rangeStart+rangeLength {
+			fmt.Printf("seedId: %d, rangeStart: %d\n", seedId, rangeStart)
+
+			return true
+		}
+	}
+	return false
+}
+
+func getReverseMappedId(id int, mapping Mapping) int {
+	for _, mappingRange := range mapping.ranges {
+		if id >= mappingRange.destinationStart && id < mappingRange.destinationStart+mappingRange.length {
+			return mappingRange.sourceStart + id - mappingRange.destinationStart
+		}
+	}
+	return id
 }
 
 func collectSeedProperties(seedIds []int, mappings []Mapping) []Seed {
