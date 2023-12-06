@@ -33,6 +33,10 @@ func main() {
 	}, 1)
 
 	fmt.Printf("product: %d\n", product)
+
+	var race = Race{duration: 55999793, recordDistance: 401148522741405}
+	var races = findWaysToWin([]Race{race})
+	fmt.Printf("ways to win: %d\n", len(races[0].holdingTimesToWin))
 }
 
 func printObject(object interface{}) {
