@@ -64,7 +64,7 @@ func swapLetterToComparableOne(character rune) rune {
 	case 'T':
 		return 'A'
 	case 'J':
-		return 'B'
+		return '0'
 	case 'Q':
 		return 'C'
 	case 'K':
@@ -79,6 +79,28 @@ func fillBidHandValue(bid Bid, _ int) Bid {
 	groupedRunes := lo.PartitionBy(bid.hand[:], func(item rune) rune {
 		return item
 	})
+	slices.SortFunc(groupedRunes, func(a, b []rune) int {
+		return len(b) - len(a)
+	})
+	var mostCommonCard rune
+	if groupedRunes[0][0] != '0' {
+		mostCommonCard = groupedRunes[0][0]
+	} else if len(groupedRunes) > 1 {
+		mostCommonCard = groupedRunes[1][0]
+	} else {
+		mostCommonCard = 'A'
+	}
+	for i := 0; i < len(groupedRunes); i++ {
+		for j := 0; j < len(groupedRunes[i]); j++ {
+			if groupedRunes[i][j] == '0' {
+				groupedRunes[i][j] = mostCommonCard
+			}
+		}
+	}
+	groupedRunes = lo.PartitionBy(lo.Flatten(groupedRunes), func(item rune) rune {
+		return item
+	})
+
 	var typeValue int
 	// high card
 	if len(groupedRunes) == 5 {
