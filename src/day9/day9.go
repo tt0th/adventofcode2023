@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tt0th/adventofcode2023/src/utils"
 	"os"
+	"slices"
 )
 
 func main() {
@@ -13,11 +14,14 @@ func main() {
 	var inputs = parseInput(path)
 
 	var sum int
+	var sum2 int
 	for i := 0; i < len(inputs); i++ {
 		sum += getNextNumber(inputs[i])
+		slices.Reverse(inputs[i])
+		sum2 += getNextNumber(inputs[i])
 	}
 
-	fmt.Printf("sum: %d\n", sum)
+	fmt.Printf("sum: %d, sum2: %d\n", sum, sum2)
 }
 
 func getNextNumber(numbers []int) int {
