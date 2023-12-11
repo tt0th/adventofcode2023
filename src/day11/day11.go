@@ -5,7 +5,6 @@ import (
 	"fmt"
 	. "github.com/tt0th/adventofcode2023/src/utils"
 	"os"
-	"slices"
 )
 
 func main() {
@@ -13,9 +12,8 @@ func main() {
 	path := "src/day11/input.txt"
 	var universe = parseInput(path)
 
-	universe = expandUniverse(universe)
-
 	galaxies := collectGalaxies(universe)
+	galaxies = translateGalaxiesWithExpansion(universe, galaxies)
 
 	var sum int
 	for _, from := range galaxies {
@@ -27,19 +25,29 @@ func main() {
 	fmt.Printf("sum: %d\n", sum/2)
 }
 
-func expandUniverse(universe [][]rune) [][]rune {
-	var emptyRows []int
-	for i := 0; i < len(universe); i++ {
-		for j := 0; j < len(universe[0]); j++ {
-			if universe[i][j] != '.' {
-				break
-			}
-			if j == len(universe[0])-1 {
-				emptyRows = append(emptyRows, i)
+func translateGalaxiesWithExpansion(universe [][]rune, galaxies []C) []C {
+	expansionRate := 999999
+	var translatedGalaxies []C
+	emptyRows := collectEmptyRows(universe)
+	emptyColumns := collectEmptyColumns(universe)
+	for _, galaxy := range galaxies {
+		galaxyCopy := galaxy
+		for _, rowIndex := range emptyRows {
+			if rowIndex < galaxy.I {
+				galaxyCopy.I += expansionRate
 			}
 		}
+		for _, columnsIndex := range emptyColumns {
+			if columnsIndex < galaxy.J {
+				galaxyCopy.J += expansionRate
+			}
+		}
+		translatedGalaxies = append(translatedGalaxies, galaxyCopy)
 	}
+	return translatedGalaxies
+}
 
+func collectEmptyColumns(universe [][]rune) []int {
 	var emptyColumns []int
 	for j := 0; j < len(universe[0]); j++ {
 		for i := 0; i < len(universe); i++ {
@@ -51,22 +59,22 @@ func expandUniverse(universe [][]rune) [][]rune {
 			}
 		}
 	}
+	return emptyColumns
+}
 
-	slices.Reverse(emptyRows)
-	for _, rowIndex := range emptyRows {
-		universe = append(universe[:rowIndex+1], universe[rowIndex:]...)
-		universe[rowIndex] = universe[rowIndex+1]
-	}
-
-	slices.Reverse(emptyColumns)
-	for _, columnIndex := range emptyColumns {
-		for i := 0; i < len(universe); i++ {
-			universe[i] = append(universe[i][:columnIndex+1], universe[i][columnIndex:]...)
-			universe[i][columnIndex] = universe[i][columnIndex+1]
+func collectEmptyRows(universe [][]rune) []int {
+	var emptyRows []int
+	for i := 0; i < len(universe); i++ {
+		for j := 0; j < len(universe[0]); j++ {
+			if universe[i][j] != '.' {
+				break
+			}
+			if j == len(universe[0])-1 {
+				emptyRows = append(emptyRows, i)
+			}
 		}
 	}
-
-	return universe
+	return emptyRows
 }
 
 func collectGalaxies(universe [][]rune) []C {
