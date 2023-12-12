@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/samber/lo"
+	lop "github.com/samber/lo/parallel"
 	. "github.com/tt0th/adventofcode2023/src/utils"
 	"os"
-	"regexp"
 	"strings"
+	"time"
 )
 
 const DAMAGED rune = '#'
@@ -15,8 +16,9 @@ const OPERATIONAL rune = '.'
 const UNKNOWN rune = '?'
 
 type Row struct {
-	springs        []rune
-	damagedLengths []int
+	springs              []rune
+	damagedLengths       []int
+	expectedDamagedCount int
 }
 
 func main() {
@@ -24,62 +26,169 @@ func main() {
 	path := "src/day12/input.txt"
 	var rows = parseInput(path)
 
-	var solutions [][][]rune
-	solutions = findSolutionsForRows(rows)
+	start := time.Now()
 
 	var sum int
-	for _, solution := range solutions {
-		sum += len(solution)
+	for _, solutionCount := range findSolutionsForRows(rows) {
+		sum += solutionCount
+	}
+	var sum2 int
+	for _, solutionCount := range findSolutionsForRows(unfoldSprings(rows)) {
+		sum2 += solutionCount
 	}
 
-	fmt.Printf("sum: %d\n", sum)
+	fmt.Printf("Time %s\n", time.Since(start))
+
+	fmt.Printf("sum: %d, sum2: %d\n", sum, sum2)
 }
 
-func findSolutionsForRows(rows []Row) [][][]rune {
-	var solutions [][][]rune
-	for _, row := range rows {
-		solution := findSolutionsForRow(row)
-		solutions = append(solutions, solution)
+func unfoldSprings(rows []Row) []Row {
+	return lo.Map(rows, func(row Row, _ int) Row {
+		return Row{
+			springs:              lo.Flatten([][]rune{row.springs, {UNKNOWN}, row.springs, {UNKNOWN}, row.springs, {UNKNOWN}, row.springs, {UNKNOWN}, row.springs}),
+			damagedLengths:       lo.Flatten([][]int{row.damagedLengths, row.damagedLengths, row.damagedLengths, row.damagedLengths, row.damagedLengths}),
+			expectedDamagedCount: row.expectedDamagedCount * 5,
+		}
+	})
+}
+
+func findSolutionsForRows(rows []Row) []int {
+	return lop.Map(rows, func(row Row, index int) int {
+		solutionCount := findSolutionsForRowByPartitioning(row)
+		println("solutions for #", index, string(row.springs), solutionCount)
+		return solutionCount
+	})
+}
+
+func findSolutionsForRowByPartitioning(row Row) int {
+	indexOfFirstOperational := lo.IndexOf(row.springs, OPERATIONAL)
+	if indexOfFirstOperational == -1 {
+		return findSolutionsForRow(row)
 	}
-	return solutions
+	firstPart := row.springs[0:indexOfFirstOperational]
+	otherPart := row.springs[indexOfFirstOperational+1:]
+
+	var solutionCounter int
+	for i := 0; i < len(row.damagedLengths)+1; i++ {
+		row1 := Row{
+			springs:              firstPart,
+			damagedLengths:       row.damagedLengths[0:i],
+			expectedDamagedCount: lo.Sum(row.damagedLengths[0:i]),
+		}
+		row2 := Row{
+			springs:              otherPart,
+			damagedLengths:       row.damagedLengths[i:],
+			expectedDamagedCount: lo.Sum(row.damagedLengths[i:]),
+		}
+		firstPartSolution := findSolutionsForRowByPartitioning(row1)
+		if firstPartSolution > 0 {
+			solutionCounter += firstPartSolution * findSolutionsForRowByPartitioning(row2)
+		}
+	}
+	return solutionCounter
 }
 
-func findSolutionsForRow(row Row) [][]rune {
+func findSolutionsForRow(row Row) int {
 	if isRowSolved(row) {
-		return [][]rune{row.springs}
+		return 1
 	}
 	if isRowUnsolvable(row) {
-		return [][]rune{}
+		return 0
 	}
 
-	rowCopy1 := row
-	rowCopy2 := row
-	rowCopy1.springs = lo.Replace(row.springs, UNKNOWN, DAMAGED, 1)
-	rowCopy2.springs = lo.Replace(row.springs, UNKNOWN, OPERATIONAL, 1)
-	return append(findSolutionsForRow(rowCopy1), findSolutionsForRow(rowCopy2)...)
+	unknownIndexes := lo.FilterMap(row.springs, func(item rune, index int) (int, bool) {
+		return index, item == UNKNOWN
+	})
+	indexToChange := unknownIndexes[len(unknownIndexes)/2]
+	springs1 := append([]rune{}, row.springs...)
+	springs2 := append([]rune{}, row.springs...)
+	springs1[indexToChange] = DAMAGED
+	springs2[indexToChange] = OPERATIONAL
+	rowCopy1 := Row{
+		springs:              springs1,
+		damagedLengths:       row.damagedLengths,
+		expectedDamagedCount: row.expectedDamagedCount,
+	}
+	rowCopy2 := Row{
+		springs:              springs2,
+		damagedLengths:       row.damagedLengths,
+		expectedDamagedCount: row.expectedDamagedCount,
+	}
+
+	return findSolutionsForRowByPartitioning(rowCopy1) + findSolutionsForRowByPartitioning(rowCopy2)
 }
 
 func isRowUnsolvable(row Row) bool {
-	damagedCount := lo.Count(row.springs, DAMAGED)
 	unknownCount := lo.Count(row.springs, UNKNOWN)
-	maxPossibleDamagedCount := damagedCount + unknownCount
-	expectedDamagedCount := lo.Sum(row.damagedLengths)
+	if unknownCount == 0 {
+		return true
+	}
 
-	return damagedCount > expectedDamagedCount || maxPossibleDamagedCount < expectedDamagedCount || unknownCount == 0
+	damagedCount := lo.Count(row.springs, DAMAGED)
+	if damagedCount > row.expectedDamagedCount {
+		return true
+	}
+
+	maxPossibleDamagedCount := damagedCount + unknownCount
+	if maxPossibleDamagedCount < row.expectedDamagedCount {
+		return true
+	}
+
+	lengths := collectGroupLengthsBeforeUnknown(row)
+	for i := 0; i < len(lengths); i++ {
+		if lengths[i] != row.damagedLengths[i] {
+			return true
+		}
+	}
+
+	return false
+}
+
+func collectGroupLengthsBeforeUnknown(row Row) []int {
+	state := "waitingForDamaged"
+	var length int
+	var lengths []int
+	for i := 0; i < len(row.springs); i++ {
+		if row.springs[i] == UNKNOWN {
+			return lengths
+		}
+		switch state {
+		case "waitingForDamaged":
+			if row.springs[i] == DAMAGED {
+				state = "collecting"
+				length = 1
+			}
+		case "collecting":
+			if row.springs[i] == DAMAGED {
+				length++
+			} else {
+				state = "waitingForDamaged"
+				lengths = append(lengths, length)
+			}
+		}
+	}
+	if state == "collecting" {
+		lengths = append(lengths, length)
+	}
+
+	return lengths
 }
 
 func isRowSolved(row Row) bool {
-	unknownCount := lo.Count(row.springs, UNKNOWN)
-	if unknownCount > 0 {
+	if lo.IndexOf(row.springs, UNKNOWN) != -1 {
 		return false
 	}
 
-	m1 := regexp.MustCompile(`\.+`)
-	stringOutcome := strings.Trim(m1.ReplaceAllString(string(row.springs), "."), ".")
-	expectedStringOutcome := strings.Join(lo.Map(row.damagedLengths, func(length int, _ int) string {
-		return strings.Repeat("#", length)
-	}), ".")
-	return stringOutcome == expectedStringOutcome
+	lengths := collectGroupLengthsBeforeUnknown(row)
+	if len(lengths) != len(row.damagedLengths) {
+		return false
+	}
+	for i := 0; i < len(lengths); i++ {
+		if lengths[i] != row.damagedLengths[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func parseInput(path string) []Row {
@@ -94,9 +203,11 @@ func parseInput(path string) []Row {
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
+		damagedLengths := StringToIntArrayBy(parts[1], ",")
 		input := Row{
-			springs:        []rune(parts[0]),
-			damagedLengths: StringToIntArrayBy(parts[1], ","),
+			springs:              []rune(parts[0]),
+			damagedLengths:       damagedLengths,
+			expectedDamagedCount: lo.Sum(damagedLengths),
 		}
 		inputs = append(inputs, input)
 	}
