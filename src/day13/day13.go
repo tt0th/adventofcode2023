@@ -22,9 +22,6 @@ type Mirror struct {
 
 type Field = [][]rune
 
-const ASH = '.'
-const ROCK = '#'
-
 func main() {
 	//path := "src/day13/test-input-1.txt"
 	path := "src/day13/input.txt"
@@ -59,7 +56,7 @@ func findMirrors(fields []Field) []Mirror {
 func findMirror(field Field) Mirror {
 	// horizontal
 	for position := 1; position < len(field); position++ {
-		if isHorizontalMirrorCorrect(field, position) {
+		if countHorizontalMirrorMismatches(field, position) == 1 {
 			return Mirror{
 				direction: Horizontal,
 				position:  position,
@@ -68,7 +65,7 @@ func findMirror(field Field) Mirror {
 	}
 	// vertical
 	for position := 1; position < len(field[0]); position++ {
-		if isVerticalMirrorCorrect(field, position) {
+		if countVerticalMirrorMismatches(field, position) == 1 {
 			return Mirror{
 				direction: Vertical,
 				position:  position,
@@ -79,32 +76,34 @@ func findMirror(field Field) Mirror {
 	panic("No mirror o.O")
 }
 
-func isVerticalMirrorCorrect(field Field, position int) bool {
+func countVerticalMirrorMismatches(field Field, position int) int {
 	sizeOfReflection := min(position, len(field[0])-position)
+	mismatchCounter := 0
 	for i := 0; i < sizeOfReflection; i++ {
 		originalColumn := position - i - 1
 		reflectedColumn := position + i
 		for row := 0; row < len(field); row++ {
 			if field[row][originalColumn] != field[row][reflectedColumn] {
-				return false
+				mismatchCounter++
 			}
 		}
 	}
-	return true
+	return mismatchCounter
 }
 
-func isHorizontalMirrorCorrect(field Field, position int) bool {
+func countHorizontalMirrorMismatches(field Field, position int) int {
 	sizeOfReflection := min(position, len(field)-position)
+	mismatchCounter := 0
 	for i := 0; i < sizeOfReflection; i++ {
 		originalRow := position - i - 1
 		reflectedRow := position + i
 		for column := 0; column < len(field[0]); column++ {
 			if field[originalRow][column] != field[reflectedRow][column] {
-				return false
+				mismatchCounter++
 			}
 		}
 	}
-	return true
+	return mismatchCounter
 }
 
 func parseInput(path string) []Field {
