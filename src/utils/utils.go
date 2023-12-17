@@ -29,3 +29,12 @@ func UnsafeParseInt(input string) int {
 	number, _ := strconv.Atoi(input)
 	return number
 }
+
+func Copy2DSlice[T any](slice [][]T) [][]T {
+	sliceCopy := make([][]T, len(slice))
+	for i := 0; i < len(slice); i++ {
+		sliceCopy[i] = make([]T, len(slice[0]))
+		copy(sliceCopy[i], slice[i])
+	}
+	return sliceCopy
+}

@@ -19,12 +19,41 @@ func main() {
 	path := "src/day16/input.txt"
 	var contraption = parseInput(path)
 
+	contraptionForPart1 := Copy2DSlice(contraption)
 	initialBeam := Beam{position: C{I: 0, J: -1}, direction: Right}
-	simulateBeamTravel(initialBeam, contraption)
-	printContraption(contraption)
+	simulateBeamTravel(initialBeam, contraptionForPart1)
+	printContraption(contraptionForPart1)
 
-	sum := countEnergizedTiles(contraption)
+	sum := countEnergizedTiles(contraptionForPart1)
 	fmt.Printf("sum: %d\n", sum)
+
+	beams := generateInitialBeams(contraption)
+	energisedTileCounts := lo.Map(beams, func(beam Beam, _ int) int {
+		contraptionCopy := Copy2DSlice(contraption)
+		simulateBeamTravel(beam, contraptionCopy)
+		return countEnergizedTiles(contraptionCopy)
+	})
+	sum2 := lo.Max(energisedTileCounts)
+	fmt.Printf("sum2: %d\n", sum2)
+}
+
+func generateInitialBeams(contraption [][]Tile) []Beam {
+	var beams []Beam
+	for i := 0; i < len(contraption); i++ {
+		beams = append(
+			beams,
+			Beam{position: C{I: -1, J: i}, direction: Down},
+			Beam{position: C{I: len(contraption), J: i}, direction: Up},
+		)
+	}
+	for i := 0; i < len(contraption[0]); i++ {
+		beams = append(
+			beams,
+			Beam{position: C{I: i, J: -1}, direction: Right},
+			Beam{position: C{I: i, J: len(contraption[0])}, direction: Left},
+		)
+	}
+	return beams
 }
 
 func printContraption(contraption [][]Tile) {
