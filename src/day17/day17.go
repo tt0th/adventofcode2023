@@ -25,17 +25,16 @@ func main() {
 	//	println("start depth limit ", i)
 	//	dfs(field, []C{source}, 0, []Direction{}, destination, &state, i)
 	//}
-	state := DFSState{minSolution: 750, costMemory: make(map[CostMemoryKey]int)}
+	state := DFSState{minSolution: 1500, costMemory: make(map[CostMemoryKey]int)}
 	dfs(field, []C{source}, 0, []Direction{}, destination, &state, 10000)
 
 	fmt.Printf("sum: %d\n", state.minSolution-field[0][0])
 }
 
 type CostMemoryKey struct {
-	place      C
-	direction1 Direction
-	direction2 Direction
-	direction3 Direction
+	place          C
+	direction      Direction
+	directionCount int
 }
 type DFSState struct {
 	minSolution int
@@ -43,16 +42,17 @@ type DFSState struct {
 }
 
 func dfs(field [][]int, path []C, cost int, directions []Direction, destination C, state *DFSState, maxDepth int) {
-	if maxDepth == 0 {
+	current := path[len(path)-1]
+	if maxDepth == 0 || current.I < 0 || current.J < 0 || current.I >= len(field) || current.J >= len(field[0]) {
 		return
 	}
-	current := path[len(path)-1]
 	costSoFar := cost + field[current.I][current.J]
 	if costSoFar >= state.minSolution {
 		return
 	}
-	lastDirections := directions[max(len(directions)-3, 0):]
-	memoryKey := calculateMemoryKey(current, lastDirections)
+	sameDirectionLength := getSameDirectionLength(directions)
+	lastDirection, _ := lo.Last(directions)
+	memoryKey := CostMemoryKey{place: current, directionCount: sameDirectionLength, direction: lastDirection}
 	costFromMemory, isMemorySet := state.costMemory[memoryKey]
 	if isMemorySet && costFromMemory <= costSoFar {
 		return
@@ -60,6 +60,9 @@ func dfs(field [][]int, path []C, cost int, directions []Direction, destination 
 	state.costMemory[memoryKey] = costSoFar
 
 	if current == destination {
+		if sameDirectionLength < 4 {
+			return
+		}
 		println("solution found", costSoFar)
 		if costSoFar < state.minSolution {
 			state.minSolution = costSoFar
@@ -83,12 +86,10 @@ func dfs(field [][]int, path []C, cost int, directions []Direction, destination 
 	if len(directions) > 0 {
 		lastDirection := directions[len(directions)-1]
 		allowedDirections = lo.Without(allowedDirections, lastDirection.Inverse())
-		if len(directions) >= 3 {
-			lastDirection2 := directions[len(directions)-2]
-			lastDirection3 := directions[len(directions)-3]
-			if lastDirection == lastDirection2 && lastDirection == lastDirection3 {
-				allowedDirections = lo.Without(allowedDirections, lastDirection)
-			}
+		if sameDirectionLength < 4 {
+			allowedDirections = []Direction{lastDirection}
+		} else if sameDirectionLength == 10 {
+			allowedDirections = lo.Without(allowedDirections, lastDirection)
 		}
 	}
 	sort.Slice(allowedDirections, func(i, j int) bool {
@@ -111,18 +112,18 @@ func dfs(field [][]int, path []C, cost int, directions []Direction, destination 
 	}
 }
 
-func calculateMemoryKey(current C, lastDirections []Direction) CostMemoryKey {
-	memoryKey := CostMemoryKey{place: current}
-	if len(lastDirections) >= 1 {
-		memoryKey.direction1 = lastDirections[0]
+func getSameDirectionLength(directions []Direction) int {
+	length := len(directions)
+	if length == 0 {
+		return 0
 	}
-	if len(lastDirections) >= 2 {
-		memoryKey.direction2 = lastDirections[1]
+	lastDirection := directions[length-1]
+	for i := 0; i < length-1; i++ {
+		if directions[length-i-1] != lastDirection {
+			return i
+		}
 	}
-	if len(lastDirections) >= 3 {
-		memoryKey.direction3 = lastDirections[2]
-	}
-	return memoryKey
+	return length
 }
 
 //// 1  function Dijkstra(Graph, source):
