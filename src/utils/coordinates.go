@@ -12,6 +12,20 @@ func (coordinate C) Add(other C) C {
 	}
 }
 
+func (coordinate C) Minus(other C) C {
+	return C{
+		I: coordinate.I - other.I,
+		J: coordinate.J - other.J,
+	}
+}
+
+func (coordinate C) Inverse() C {
+	return C{
+		I: -coordinate.I,
+		J: -coordinate.J,
+	}
+}
+
 func (coordinate C) DistanceTo(to C) int {
 	return Abs(coordinate.I-to.I) + Abs(coordinate.J-to.J)
 }
